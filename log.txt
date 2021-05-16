@@ -1,3 +1,19 @@
 Python modbus
 https://pypi.org/project/minimalmodbus/
 
+eclipse verkar inte gå att installera. Lösningen är att installera om
+equinox. Se inlägg #30:
+https://bugs.launchpad.net/ubuntu/+source/eclipse/+bug/1754886
+$ sudo wget http://archive.ubuntu.com/ubuntu/pool/universe/e/eclipse/libequinox-osgi-java_3.8.1-8_all.deb
+
+$ sudo dpkg -x ./libequinox-osgi-java_3.8.1-8_all.deb /
+$ sudo apt install --reinstall libequinox-osgi-java
+$ eclipse #(this should launch)
+
+Java 8 behöver vara installerat och utpekat i /etc/eclipse.ini
+-vm
+/usr/lib/jvm/java-8-openjdk-armhf/jre/bin/java
+
+Och så är det pydev för eclipse 3.8.
+https://www.pydev.org/download.html säger följande:
+Eclipse 3.8, Java 7: PyDev 4.5.5
