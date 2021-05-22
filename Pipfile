@@ -6,6 +6,8 @@ name = "pypi"
 [packages]
 pyserial = "*"
 minimalmodbus = "*"
+flake8 = "*"
+blynklib = "*"
 
 [dev-packages]
 
