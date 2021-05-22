@@ -1,7 +1,7 @@
 import blynklib
 import blynktimer
 import configparser
-import random
+import acs400
 
 
 #BLYNK_AUTH = 'YourAuthToken'  # insert your Auth Token here
@@ -16,12 +16,13 @@ timer = blynktimer.Timer()
 
 WRITE_EVENT_PRINT_MSG = "[WRITE_VIRTUAL_WRITE] Pin: V{} Value: '{}'"
 
+fInv = acs400.ACS400(port="/dev/ttyUSB1")
 
 # Code below: register two timers for different pins with different intervals
 # run_once flag allows to run timers once or periodically
 @timer.register(vpin_num=0, interval=4, run_once=False)
 def write_to_virtual_pin(vpin_num=1):
-    value = random.randint(0, 20)
+    value = fInv.getNPump()
     print(WRITE_EVENT_PRINT_MSG.format(vpin_num, value))
     blynk.virtual_write(vpin_num, value)
 
@@ -29,7 +30,7 @@ def write_to_virtual_pin(vpin_num=1):
 
 print(BLYNK_AUTH)
     
-print("Joh")
-#while True:
-#    blynk.run()
-#    timer.run()
+
+while True:
+    blynk.run()
+    timer.run()
