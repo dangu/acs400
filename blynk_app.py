@@ -2,9 +2,11 @@ import blynklib
 import blynktimer
 import configparser
 import acs400
+import logging
+import sys
 
+logger = logging.getLogger(__name__)
 
-#BLYNK_AUTH = 'YourAuthToken'  # insert your Auth Token here
 config = configparser.ConfigParser()
 config.read("blynk_app.ini")
 
@@ -13,25 +15,49 @@ blynk = blynklib.Blynk(BLYNK_AUTH)
 
 port = config['ACS400']['port']
 
-# create timers dispatcher instance
-timer = blynktimer.Timer()
-
-WRITE_EVENT_PRINT_MSG = "[WRITE_VIRTUAL_WRITE] Pin: V{} Value: '{}'"
-
 fInv = acs400.ACS400(port=port)
 
-# Code below: register two timers for different pins with different intervals
-# run_once flag allows to run timers once or periodically
-@timer.register(vpin_num=0, interval=4, run_once=False)
-def write_to_virtual_pin(vpin_num=1):
-    result = fInv.getNPump()
-    if not result.isError():
-        nPump = result.registers[0]
-        print(WRITE_EVENT_PRINT_MSG.format(vpin_num, nPump))
-        blynk.virtual_write(vpin_num, nPump)
-    else:
-        print(f"{result}")
+timer = blynktimer.Timer()
 
-while True:
-    blynk.run()
-    timer.run()
+# Map virtual pins to registers
+VIRTUAL_PIN_MAP = [[0, 2], # Speed
+                   [1, 3], # Freq
+                   [1, 4], # Current
+                   [1, 5], # Torque
+                   [1, 6], # Power
+                   [1, 12], # Ext ref 2
+                   [1, 16], # Appl blk output
+                   [2, 19],] # AI2
+
+@timer.register(interval=4, run_once=False)
+def write_to_virtual_pins():
+    group = 1
+    for vpin_num, idx in VIRTUAL_PIN_MAP:
+        resultRaw, val = fInv.getRegisterFormat(group=group, idx=idx)
+        if not resultRaw.isError():
+            blynk.virtual_write(vpin_num, val)
+            logger.debug(f"{group:02}{idx:02}: {val}")
+        else:
+            logger.error(f"Error reading register {group:02}{idx:02} \'{result}\'")
+
+
+if __name__ =="__main__":
+    logFormatter = logging.Formatter("%(asctime)s [%(levelname)-7s][%(name)s] %(message)s")
+    rootLogger = logging.getLogger()
+
+    fileHandler = logging.FileHandler("blynk_app.log")
+    fileHandler.setFormatter(logFormatter)
+    fileHandler.setLevel(logging.WARNING)
+    rootLogger.addHandler(fileHandler)
+    
+    consoleHandler = logging.StreamHandler(sys.stdout)
+    consoleHandler.setFormatter(logFormatter)
+    consoleHandler.setLevel(logging.DEBUG)
+    rootLogger.addHandler(consoleHandler)
+
+    logger.setLevel(logging.DEBUG)
+    rootLogger.setLevel(logging.INFO)
+
+    while True:
+        blynk.run()
+        timer.run()

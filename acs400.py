@@ -40,6 +40,7 @@ REGISTERS = {1: ["Operating data",
                   [36, 0.01, "Run Time", "kh"],
                   [37, 1, "MWh Counter", "MWh"], ]]}
 
+REGISTER_RELAY = 121 # Relay register
 
 class ACS400:
     def __init__(self, port):
@@ -63,18 +64,53 @@ class ACS400:
         """Get register"""
         return self.client.read_holding_registers(reg-1, count=1, unit=1)
 
+    def getRegisterFormat(self, group, idx):
+        """Get register formatted"""
+        value = None
+        result = None
+        if group in REGISTERS:
+            groupData = REGISTERS[group]
+            registers = groupData[1]
+            register = [reg for reg in registers if reg[0] == idx]
+
+            if register:
+                idx, fact, name, unit = register[0]
+                reg = group*100 + idx
+                result = self.getRegister(reg)
+                if not result.isError():
+                    value = result.registers[0]*fact
+                else:
+                    logger.error(f"Could not read register {group}{idx}")
+            else:
+                logger.error(f"Register {group:02}{idx:02} not found")
+        else:
+            logger.error(f"Register {group:02}{idx:02} not found")
+        return result, value
+     
+    def getRelays(self):
+        """Get status of relays"""
+        result = self.getRegister(REGISTER_RELAY)
+        if not result.isError():
+            raw = result.registers[0]
+            relay1Status = raw & 0x01
+            relay2Status = (raw & 0x02) >> 1
+        else:
+            logger.error("Could not read relays")
+            relay1Status = None
+            relay2Status = None
+        return relay1Status, relay2Status
+          
     def dumpGroup(self,  group):
         """Dump specific group of parameters"""
         if group in REGISTERS:
             groupData = REGISTERS[group]
-            groupName = groupData[0]
+            # groupName = groupData[0]
             registers = groupData[1]
             for idx, fact, name, unit in registers:
                 reg = group*100 + idx
                 result = self.getRegister(reg)
                 if not result.isError():
                     value = result.registers[0]*fact
-                    logger.info(f"{group:02}{idx:02}: {value} {unit} ({name})")
                 else:
                     logger.error(f"Could not read register {group}{idx}")
         else:
@@ -98,6 +134,7 @@ if __name__ =="__main__":
 
     fileHandler = logging.FileHandler("acs400.log")
     fileHandler.setFormatter(logFormatter)
+    fileHandler.setLevel(logging.WARNING)
     rootLogger.addHandler(fileHandler)
     
     consoleHandler = logging.StreamHandler(sys.stdout)
@@ -106,7 +143,9 @@ if __name__ =="__main__":
     
     rootLogger.setLevel(logging.INFO)
     acs400 = ACS400(port="/dev/ttyUSB1")
-    acs400.dumpGroup(1)
+    #acs400.dumpGroup(1)
+    #logger.info(f"Relays: {acs400.getRelays()}")
+    logger.info(f"{acs400.getRegisterFormat(group=1, idx=5)}")
     # for i in range(5):
     #     acs400.printNPump()
     #     time.sleep(1)
