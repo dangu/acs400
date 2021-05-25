@@ -40,7 +40,9 @@ REGISTERS = {1: ["Operating data",
                   [36, 0.01, "Run Time", "kh"],
                   [37, 1, "MWh Counter", "MWh"], ]]}
 
-REGISTER_RELAY = 121 # Relay register
+REGISTER_RELAY = 121  # Relay register
+REGISTER_DI1_4 = 117
+REGISTER_DI5 = 121
 
 class ACS400:
     def __init__(self, port):
@@ -89,17 +91,36 @@ class ACS400:
      
     def getRelays(self):
         """Get status of relays"""
+        relays = None
         result = self.getRegister(REGISTER_RELAY)
         if not result.isError():
             raw = result.registers[0]
             relay1Status = raw & 0x01
             relay2Status = (raw & 0x02) >> 1
+            relays = [relay1Status, relay2Status]
         else:
-            logger.error("Could not read relays")
-            relay1Status = None
-            relay2Status = None
-        return relay1Status, relay2Status
-          
+            logger.error(f"Could not read relays ({result})")
+        return relays
+
+    def getDigitalInputs(self):
+        """Get status of DI1-DI5"""
+        resultDI1_4 = self.getRegister(REGISTER_DI1_4)
+        resultDI5 = self.getRegister(REGISTER_DI5)
+
+        digitalInputs = None
+        if not (resultDI1_4.isError() or resultDI5.isError()):
+            val1_4 = resultDI1_4.registers[0]
+            val5 = resultDI5.registers[0]
+            DI1 = (val1_4 >> 0) & 0x01
+            DI2 = (val1_4 >> 1) & 0x01
+            DI3 = (val1_4 >> 2) & 0x01
+            DI4 = (val1_4 >> 3) & 0x01
+            DI5 = (val5 >> 3) & 0x01
+            digitalInputs = [DI1, DI2, DI3, DI4, DI5]
+        else:
+            logger.error(f"Could not read digital inputs {resultDI1_4} {resultDI5}")
+        return digitalInputs
+
     def dumpGroup(self,  group):
         """Dump specific group of parameters"""
         if group in REGISTERS:
@@ -128,6 +149,39 @@ class ACS400:
                 if not result.isError():
                     logger.info(f"{reg:04} {result.registers[0]:}")
 
+    def getPFCStatus(self):
+        """Get status of PFC (Pump and Fan Control) values
+Important values PID
+------------------
+4006 Actual Val Sel: PID controller (actual) signal selection
+1: ACT1
+4007 ACT1 input selection
+2: (AI2)
+4019 Set Point Selection: Sets the reference signal
+1: Internal. Process referencs is a constant value set with 4020
+44.0
+
+Important values PFC
+-----------------------
+8109 Start freq 1: When exceeding Start freq + 1 Hz the start delay starts
+counting
+8109: 53.0
+8112 Low freq 1: When belo low freq -1 stop delay starts
+8112: 5.0
+8117 Relay outputs. RO1 and RO2 are used if 8117==1
+8118 [0.1h] Autochange interval
+8120 Interlocks
+
+"""
+        interlocks = self.getRegister(8120)
+        numOfExtraMotors = self.getRegister(8117)
+        if interlocks == 4 and numOfExtraMotors == 1:
+            # DI4 is Motor 1
+            # DI5 is Motor 2
+            digitalInputs = self.getDigitalInputs()
+            
+            
+                    
 if __name__ =="__main__":
     logFormatter = logging.Formatter("%(asctime)s [%(levelname)-7s][%(name)s] %(message)s")
     rootLogger = logging.getLogger()
@@ -144,8 +198,9 @@ if __name__ =="__main__":
     rootLogger.setLevel(logging.INFO)
     acs400 = ACS400(port="/dev/ttyUSB1")
     #acs400.dumpGroup(1)
-    #logger.info(f"Relays: {acs400.getRelays()}")
-    logger.info(f"{acs400.getRegisterFormat(group=1, idx=5)}")
+    logger.info(f"Relays: {acs400.getRelays()}")
+    #logger.info(f"{acs400.getRegisterFormat(group=1, idx=5)}")
+    logger.info(f"{acs400.getDigitalInputs()}")
     # for i in range(5):
     #     acs400.printNPump()
     #     time.sleep(1)
