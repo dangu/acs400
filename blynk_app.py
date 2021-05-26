@@ -27,7 +27,7 @@ VIRTUAL_PIN_MAP = [[0, 2],  # Speed
                    [4, 6],  # Power
                    [5, 16],  # Appl blk output
                    [6, 19],]  # AI2
-                  
+
 VRO1 = 21
 VRO2 = 22
 VDI1 = 31
@@ -42,27 +42,27 @@ def write_to_virtual_pins():
     for vpin_num, idx in VIRTUAL_PIN_MAP:
         resultRaw, val = fInv.getRegisterFormat(group=group, idx=idx)
         if not resultRaw.isError():
-            blynk.virtual_write(vpin_num, val)
+            blynk.virtual_write(vpin_num, round(val,3))
             logger.debug(f"{group:02}{idx:02}: {val}")
         else:
-            logger.error(f"Error reading register {group:02}{idx:02} \'{result}\'")
+            logger.error(f"Error reading register {group:02}{idx:02} \'{resultRaw}\'")
 
     # Relays
     relays = fInv.getRelays()
     if relays:
         logger.debug(f"Relays: {relays}")
-        blynk.virtual_write(VRO1, relays[0])
-        blynk.virtual_write(VRO2, relays[1])
+        blynk.virtual_write(VRO1, relays[0]*255)
+        blynk.virtual_write(VRO2, relays[1]*255)
 
-    #Digital inputs
+    # Digital inputs
     digitalInputs = fInv.getDigitalInputs()
     if digitalInputs:
         logger.debug(f"Digital inputs: {digitalInputs}")
-        blynk.virtual_write(VDI1, digitalInputs[0])
-        blynk.virtual_write(VDI2, digitalInputs[1])
-        blynk.virtual_write(VDI3, digitalInputs[2])
-        blynk.virtual_write(VDI4, digitalInputs[3])
-        blynk.virtual_write(VDI5, digitalInputs[4])
+        blynk.virtual_write(VDI1, digitalInputs[0]*255)
+        blynk.virtual_write(VDI2, digitalInputs[1]*255)
+        blynk.virtual_write(VDI3, digitalInputs[2]*255)
+        blynk.virtual_write(VDI4, digitalInputs[3]*255)
+        blynk.virtual_write(VDI5, digitalInputs[4]*255)
             
 
 if __name__ =="__main__":
@@ -73,13 +73,13 @@ if __name__ =="__main__":
     fileHandler.setFormatter(logFormatter)
     fileHandler.setLevel(logging.WARNING)
     rootLogger.addHandler(fileHandler)
-    
+
     consoleHandler = logging.StreamHandler(sys.stdout)
     consoleHandler.setFormatter(logFormatter)
     consoleHandler.setLevel(logging.DEBUG)
     rootLogger.addHandler(consoleHandler)
 
-    logger.setLevel(logging.DEBUG)
+    logger.setLevel(logging.INFO)
     rootLogger.setLevel(logging.INFO)
 
     while True:
