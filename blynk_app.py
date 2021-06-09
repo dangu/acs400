@@ -26,7 +26,10 @@ VIRTUAL_PIN_MAP = [[0, 2],  # Speed
                    [3, 5],  # Torque
                    [4, 6],  # Power
                    [5, 16],  # Appl blk output
-                   [6, 19],]  # AI2
+                   [6, 19],  # AI2
+                   [7, 28],  # Last fault
+                   [8, 29],  # Previous fault
+                   [9, 30],] # Oldest fault
 
 VRO1 = 21
 VRO2 = 22
