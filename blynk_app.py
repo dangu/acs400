@@ -14,8 +14,13 @@ BLYNK_AUTH = config['AUTH']['token'].strip('\"')
 blynk = blynklib.Blynk(BLYNK_AUTH)
 
 port = config['ACS400']['port']
+if config['ACS400']['enable_writes'] == "True":
+    enableWrites = True
+else:
+    enableWrites = False
 
-fInv = acs400.ACS400(port=port)
+
+fInv = acs400.ACS400(port=port, enableWrites=enableWrites)
 
 timer = blynktimer.Timer()
 
@@ -85,13 +90,13 @@ def write_to_virtual_pins():
 @blynk.handle_event(f"write V{VP_REF}")
 def app_write_pressure(pin, value):
     """Handle pressure writes from app"""
-    logger.info(f"Write pin {pin} with value {value[0]}")
+    logger.debug(f"Write pin {pin} with value {value[0]}")
     try:
         pressureInput = float(value[0])
         if P_MIN <= pressureInput <= P_MAX:
             fInv.setReferencePressure(pressureInput)
     except ValueError:
-        logger.error(f"Tried to set pressure '{value[0]}'")
+        logger.error(f"Invalid pressure '{value[0]}'")
 
 # register handler for virtual pin V4 write event
 @blynk.handle_event('write V60')
@@ -114,6 +119,9 @@ if __name__ == "__main__":
 
     logger.setLevel(logging.INFO)
     rootLogger.setLevel(logging.INFO)
+
+    if enableWrites:
+        logger.warning("Writes are enabled!")
 
     while True:
         blynk.run()

@@ -47,6 +47,9 @@ REGISTER_RELAY = 121  # Relay register
 REGISTER_DI1_4 = 117
 REGISTER_DI5 = 121
 
+# Writable registers
+W_REGISTER_INTERNAL_SETPOINT = 4020
+
 # Pressure sensor 4-20 mA data
 SENSOR_PRESSURE_MAX = 10   # [bar] Sensor max pressure
 SENSOR_SIGNAL_MIN = 20    # [%] Sensor min current
@@ -57,7 +60,8 @@ P_REF_MAX = 4             # [bar] Maximum reference pressure
 
 
 class ACS400:
-    def __init__(self, port):
+    def __init__(self, port, enableWrites=False):
+        self._enableWrites = enableWrites
         self.client = ModbusSerialClient(method='rtu',
                                          port=port,
                                          timeout=1,
@@ -74,9 +78,20 @@ class ACS400:
         nPump = self.client.read_holding_registers(102-1, count=1, unit=1)
         return nPump
 
-    def getRegister(self,  reg):
+    def getRegister(self, reg):
         """Get register"""
         return self.client.read_holding_registers(reg-1, count=1, unit=1)
+
+    def setRegister(self, reg, value):
+        """Set register"""
+        if self._enableWrites:
+            result = self.client.write_register(reg-1, value, unit=1)
+            if not result.isError():
+                logger.debug(f"Write {reg:04}:{value}")
+            else:
+                logger.error(f"Could not write register {result}")
+        else:
+            logger.debug(f"Would write {reg}:{value}")
 
     def getActualPressure(self):
         """Get actual pressure value by using the
@@ -95,7 +110,7 @@ class ACS400:
             k = (SENSOR_SIGNAL_MAX-SENSOR_SIGNAL_MIN)/SENSOR_PRESSURE_MAX
             signal = pressureRef*k + SENSOR_SIGNAL_MIN
             registerValue = round(signal/0.1)
-            logger.info(f"Would set {registerValue}")
+            self.setRegister(W_REGISTER_INTERNAL_SETPOINT, registerValue)
 
     def getRegisterFormat(self, group, idx):
         """Get register formatted"""
