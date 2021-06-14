@@ -1,10 +1,11 @@
 from pymodbus.client.sync import ModbusSerialClient
-import time
+# import time
 import logging
 import sys
 
 logger = logging.getLogger(__name__)
 
+# Register table: [index, resolution, name, unit]
 REGISTERS = {1: ["Operating data",
                  [[2, 1, "Speed", "rpm"],
                   [3, 0.1, "Output Freq", "Hz"],
@@ -38,11 +39,22 @@ REGISTERS = {1: ["Operating data",
                   [34, 1, "Process Var 1", "-"],
                   [35, 1, "Process Var 2", "-"],
                   [36, 0.01, "Run Time", "kh"],
-                  [37, 1, "MWh Counter", "MWh"], ]]}
+                  [37, 1, "MWh Counter", "MWh"], ]],
+             40: ["PID Control",
+                  [[20, 0.1, "Internal setpoint", "%"], ]]}
 
 REGISTER_RELAY = 121  # Relay register
 REGISTER_DI1_4 = 117
 REGISTER_DI5 = 121
+
+# Pressure sensor 4-20 mA data
+SENSOR_PRESSURE_MAX = 10   # [bar] Sensor max pressure
+SENSOR_SIGNAL_MIN = 20    # [%] Sensor min current
+SENSOR_SIGNAL_MAX = 100   # [%] Sensor max current
+
+P_REF_MIN = 0             # [bar] Minimum reference pressure
+P_REF_MAX = 4             # [bar] Maximum reference pressure
+
 
 class ACS400:
     def __init__(self, port):
@@ -66,6 +78,25 @@ class ACS400:
         """Get register"""
         return self.client.read_holding_registers(reg-1, count=1, unit=1)
 
+    def getActualPressure(self):
+        """Get actual pressure value by using the
+        4-20 mA current output of the pressure sensor"""
+        pressure = None
+        result, value = self.getRegisterFormat(group=1, idx=19)
+        if not result.isError():
+            k = SENSOR_PRESSURE_MAX/(SENSOR_SIGNAL_MAX-SENSOR_SIGNAL_MIN)
+            signal = value-SENSOR_SIGNAL_MIN
+            pressure = signal*k
+        return pressure
+
+    def setReferencePressure(self, pressureRef):
+        """Set reference pressure"""
+        if P_REF_MIN <= pressureRef <= P_REF_MAX:
+            k = (SENSOR_SIGNAL_MAX-SENSOR_SIGNAL_MIN)/SENSOR_PRESSURE_MAX
+            signal = pressureRef*k + SENSOR_SIGNAL_MIN
+            registerValue = round(signal/0.1)
+            logger.info(f"Would set {registerValue}")
+
     def getRegisterFormat(self, group, idx):
         """Get register formatted"""
         value = None
@@ -88,7 +119,7 @@ class ACS400:
         else:
             logger.error(f"Register {group:02}{idx:02} not found")
         return result, value
-     
+
     def getRelays(self):
         """Get status of relays"""
         relays = None
@@ -127,16 +158,15 @@ class ACS400:
             groupData = REGISTERS[group]
             # groupName = groupData[0]
             registers = groupData[1]
-            for idx, fact, name, unit in registers:
-                reg = group*100 + idx
-                result = self.getRegister(reg)
+            for idx in registers:
+                result, value = self.getRegisterFormat(group, idx)
                 if not result.isError():
-                    value = result.registers[0]*fact
+                    logger.info(f"{group:02}{idx:02} {value}")
                 else:
-                    logger.error(f"Could not read register {group}{idx}")
+                    logger.error(f"Could not read register {group:02}{idx:02}")
         else:
             logger.error(f"Group '{group}' not found")
-    
+
     def dumpAll(self):
         """Dump all parameters"""
         groups = [99, 1, 10, 11, 12, 13, 14, 15, 16, 20]
@@ -157,6 +187,10 @@ Important values PID
 1: ACT1
 4007 ACT1 input selection
 2: (AI2)
+4009 ACT1 MINIMUM
+Analogue minimum value
+3010 ACT1 MAXIMUM
+Analogue maximum
 4019 Set Point Selection: Sets the reference signal
 1: Internal. Process referencs is a constant value set with 4020
 44.0
@@ -166,7 +200,7 @@ Important values PFC
 8109 Start freq 1: When exceeding Start freq + 1 Hz the start delay starts
 counting
 8109: 53.0
-8112 Low freq 1: When belo low freq -1 stop delay starts
+8112 Low freq 1: When below low freq -1 stop delay starts
 8112: 5.0
 8117 Relay outputs. RO1 and RO2 are used if 8117==1
 8118 [0.1h] Autochange interval

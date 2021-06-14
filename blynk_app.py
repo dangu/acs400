@@ -29,7 +29,7 @@ VIRTUAL_PIN_MAP = [[0, 2],  # Speed
                    [6, 19],  # AI2
                    [7, 28],  # Last fault
                    [8, 29],  # Previous fault
-                   [9, 30],] # Oldest fault
+                   [9, 30], ]  # Oldest fault
 
 VRO1 = 21
 VRO2 = 22
@@ -38,6 +38,14 @@ VDI2 = 32
 VDI3 = 33
 VDI4 = 34
 VDI5 = 35
+VP = 50  # Pressure
+
+# Writable pins
+VP_REF = 100  # Pressure reference
+
+# Limits
+P_MIN = 0  # [bar] Minimum pressure
+P_MAX = 4  # [bar] Maximum pressure
 
 @timer.register(interval=4, run_once=False)
 def write_to_virtual_pins():
@@ -45,7 +53,7 @@ def write_to_virtual_pins():
     for vpin_num, idx in VIRTUAL_PIN_MAP:
         resultRaw, val = fInv.getRegisterFormat(group=group, idx=idx)
         if not resultRaw.isError():
-            blynk.virtual_write(vpin_num, round(val,3))
+            blynk.virtual_write(vpin_num, round(val, 3))
             logger.debug(f"{group:02}{idx:02}: {val}")
         else:
             logger.error(f"Error reading register {group:02}{idx:02} \'{resultRaw}\'")
@@ -66,9 +74,31 @@ def write_to_virtual_pins():
         blynk.virtual_write(VDI3, digitalInputs[2]*255)
         blynk.virtual_write(VDI4, digitalInputs[3]*255)
         blynk.virtual_write(VDI5, digitalInputs[4]*255)
-            
 
-if __name__ =="__main__":
+    # Pressure
+    pressure = fInv.getActualPressure()
+    if pressure:
+        logger.debug(f"Pressure: {pressure}")
+        blynk.virtual_write(VP, round(pressure, 3))
+
+
+@blynk.handle_event(f"write V{VP_REF}")
+def app_write_pressure(pin, value):
+    """Handle pressure writes from app"""
+    logger.info(f"Write pin {pin} with value {value[0]}")
+    try:
+        pressureInput = float(value[0])
+        if P_MIN <= pressureInput <= P_MAX:
+            fInv.setReferencePressure(pressureInput)
+    except ValueError:
+        logger.error(f"Tried to set pressure '{value[0]}'")
+
+# register handler for virtual pin V4 write event
+@blynk.handle_event('write V60')
+def write_virtual_pin_handler(pin, value):
+    logger.debug(f"Write pin {pin} with value {value[0]}")
+        
+if __name__ == "__main__":
     logFormatter = logging.Formatter("%(asctime)s [%(levelname)-7s][%(name)s] %(message)s")
     rootLogger = logging.getLogger()
 
