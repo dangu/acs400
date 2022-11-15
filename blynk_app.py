@@ -4,6 +4,7 @@ import configparser
 import acs400
 import logging
 import sys
+import publisher
 
 logger = logging.getLogger(__name__)
 
@@ -21,6 +22,9 @@ else:
 
 
 fInv = acs400.ACS400(port=port, enableWrites=enableWrites)
+
+publisher = publisher.Publisher()
+publisher.open(port=22201)
 
 timer = blynktimer.Timer()
 
@@ -59,6 +63,8 @@ def write_to_virtual_pins():
         resultRaw, val = fInv.getRegisterFormat(group=group, idx=idx)
         if not resultRaw.isError():
             blynk.virtual_write(vpin_num, round(val, 3))
+            publisher.send({'vpin_num':vpin_num,
+                            'val':val})
             logger.debug(f"{group:02}{idx:02}: {val}")
         else:
             logger.error(f"Error reading register {group:02}{idx:02} \'{resultRaw}\'")
@@ -123,6 +129,8 @@ if __name__ == "__main__":
     if enableWrites:
         logger.warning("Writes are enabled!")
 
+    
+        
     while True:
         blynk.run()
         timer.run()
