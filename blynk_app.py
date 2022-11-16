@@ -63,8 +63,10 @@ def write_to_virtual_pins():
         resultRaw, val = fInv.getRegisterFormat(group=group, idx=idx)
         if not resultRaw.isError():
             blynk.virtual_write(vpin_num, round(val, 3))
-            publisher.send({'vpin_num':vpin_num,
-                            'val':val})
+            dataDict = {'vpin_num':vpin_num,
+                        'val':val}
+            publisher.send({'acs400':dataDict})
+                            
             logger.debug(f"{group:02}{idx:02}: {val}")
         else:
             logger.error(f"Error reading register {group:02}{idx:02} \'{resultRaw}\'")
