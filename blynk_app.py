@@ -29,16 +29,17 @@ publisher.open(port=22201)
 timer = blynktimer.Timer()
 
 # Map virtual pins to registers
-VIRTUAL_PIN_MAP = [[0, 2],  # Speed
-                   [1, 3],  # Freq
-                   [2, 4],  # Current
-                   [3, 5],  # Torque
-                   [4, 6],  # Power
-                   [5, 16],  # Appl blk output
-                   [6, 19],  # AI2
-                   [7, 28],  # Last fault
-                   [8, 29],  # Previous fault
-                   [9, 30], ]  # Oldest fault
+#                   Vpin Register Description
+VIRTUAL_PIN_MAP = [[[0, 2], "Speed"],
+                   [[1, 3], "Freq"],
+                   [[2, 4], "Current"],
+                   [[3, 5], "Torque"],
+                   [[4, 6], "Power"],
+                   [[5, 16],"Appl blk output"],
+                   [[6, 19],"AI2"],
+                   [[7, 28],"Last fault"],
+                   [[8, 29],"Previous fault"],
+                   [[9, 30],"Oldest fault"],]
 
 VRO1 = 21
 VRO2 = 22
@@ -59,14 +60,15 @@ P_MAX = 4  # [bar] Maximum pressure
 @timer.register(interval=4, run_once=False)
 def write_to_virtual_pins():
     group = 1
-    for vpin_num, idx in VIRTUAL_PIN_MAP:
+    dictToPublish = {}
+    dictToPublishBlynk2 = {}
+    for (vpin_num, idx), desc in VIRTUAL_PIN_MAP:
         resultRaw, val = fInv.getRegisterFormat(group=group, idx=idx)
         if not resultRaw.isError():
-            blynk.virtual_write(vpin_num, round(val, 3))
-            dataDict = {'vpin_num':vpin_num,
-                        'val':val}
-            publisher.send({'acs400':dataDict})
-                            
+            roundedValue = round(val, 3)
+            blynk.virtual_write(vpin_num, roundedValue)
+            dictToPublish[desc] = roundedValue
+            dictToPublishBlynk2[vpin_num] = roundedValue
             logger.debug(f"{group:02}{idx:02}: {val}")
         else:
             logger.error(f"Error reading register {group:02}{idx:02} \'{resultRaw}\'")
@@ -77,6 +79,8 @@ def write_to_virtual_pins():
         logger.debug(f"Relays: {relays}")
         blynk.virtual_write(VRO1, relays[0]*255)
         blynk.virtual_write(VRO2, relays[1]*255)
+        dictToPublish["Relay 1"] = relays[0]
+        dictToPublish["Relay 2"] = relays[1]
 
     # Digital inputs
     digitalInputs = fInv.getDigitalInputs()
@@ -87,13 +91,24 @@ def write_to_virtual_pins():
         blynk.virtual_write(VDI3, digitalInputs[2]*255)
         blynk.virtual_write(VDI4, digitalInputs[3]*255)
         blynk.virtual_write(VDI5, digitalInputs[4]*255)
+        for idx, value in enumerate(digitalInputs):
+            dictToPublish[f"Digital Input {idx+1}"] = value
 
     # Pressure
     pressure = fInv.getActualPressure()
     if pressure:
         logger.debug(f"Pressure: {pressure}")
-        blynk.virtual_write(VP, round(pressure, 3))
+        pressureRounded = round(pressure, 3)
+        blynk.virtual_write(VP, pressureRounded)
+        dictToPublish['pressure'] = pressureRounded
 
+    # Publish if there is data
+    if dictToPublish != {}:
+        publisher.send({'acs400':dictToPublish})
+
+    # Special publish for Blynk2
+    if dictToPublishBlynk2 != {}:
+        publisher.send({'acs400ForBlynk2':dictToPublishBlynk2})
 
 @blynk.handle_event(f"write V{VP_REF}")
 def app_write_pressure(pin, value):

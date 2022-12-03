@@ -13,7 +13,8 @@ class Publisher:
         """Bind to a specific port"""
         context = zmq.Context()
         self._socket = context.socket(zmq.PUB)
-        bind_address = f"tcp://127.0.0.1:{port}"
+#        bind_address = f"tcp://127.0.0.1:{port}"
+        bind_address = f"tcp://0.0.0.0:{port}"
         print(f"Binding to {bind_address} ...")
         self._socket.bind(bind_address)
 
