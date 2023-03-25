@@ -11,8 +11,6 @@ logger = logging.getLogger(__name__)
 config = configparser.ConfigParser()
 config.read("blynk_app.ini")
 
-BLYNK_AUTH = config['AUTH']['token'].strip('\"')
-blynk = blynklib.Blynk(BLYNK_AUTH)
 
 port = config['ACS400']['port']
 if config['ACS400']['enable_writes'] == "True":
@@ -66,7 +64,6 @@ def write_to_virtual_pins():
         resultRaw, val = fInv.getRegisterFormat(group=group, idx=idx)
         if not resultRaw.isError():
             roundedValue = round(val, 3)
-            blynk.virtual_write(vpin_num, roundedValue)
             dictToPublish[desc] = roundedValue
             dictToPublishBlynk2[vpin_num] = roundedValue
             logger.debug(f"{group:02}{idx:02}: {val}")
@@ -77,8 +74,6 @@ def write_to_virtual_pins():
     relays = fInv.getRelays()
     if relays:
         logger.debug(f"Relays: {relays}")
-        blynk.virtual_write(VRO1, relays[0]*255)
-        blynk.virtual_write(VRO2, relays[1]*255)
         dictToPublish["Relay 1"] = relays[0]
         dictToPublish["Relay 2"] = relays[1]
 
@@ -86,11 +81,6 @@ def write_to_virtual_pins():
     digitalInputs = fInv.getDigitalInputs()
     if digitalInputs:
         logger.debug(f"Digital inputs: {digitalInputs}")
-        blynk.virtual_write(VDI1, digitalInputs[0]*255)
-        blynk.virtual_write(VDI2, digitalInputs[1]*255)
-        blynk.virtual_write(VDI3, digitalInputs[2]*255)
-        blynk.virtual_write(VDI4, digitalInputs[3]*255)
-        blynk.virtual_write(VDI5, digitalInputs[4]*255)
         for idx, value in enumerate(digitalInputs):
             dictToPublish[f"Digital Input {idx+1}"] = value
 
@@ -99,7 +89,6 @@ def write_to_virtual_pins():
     if pressure:
         logger.debug(f"Pressure: {pressure}")
         pressureRounded = round(pressure, 3)
-        blynk.virtual_write(VP, pressureRounded)
         dictToPublish['pressure'] = pressureRounded
 
     # Publish if there is data
@@ -109,22 +98,6 @@ def write_to_virtual_pins():
     # Special publish for Blynk2
     if dictToPublishBlynk2 != {}:
         publisher.send({'acs400ForBlynk2':dictToPublishBlynk2})
-
-@blynk.handle_event(f"write V{VP_REF}")
-def app_write_pressure(pin, value):
-    """Handle pressure writes from app"""
-    logger.debug(f"Write pin {pin} with value {value[0]}")
-    try:
-        pressureInput = float(value[0])
-        if P_MIN <= pressureInput <= P_MAX:
-            fInv.setReferencePressure(pressureInput)
-    except ValueError:
-        logger.error(f"Invalid pressure '{value[0]}'")
-
-# register handler for virtual pin V4 write event
-@blynk.handle_event('write V60')
-def write_virtual_pin_handler(pin, value):
-    logger.debug(f"Write pin {pin} with value {value[0]}")
         
 if __name__ == "__main__":
     logFormatter = logging.Formatter("%(asctime)s [%(levelname)-7s][%(name)s] %(message)s")
@@ -149,5 +122,4 @@ if __name__ == "__main__":
     
         
     while True:
-        blynk.run()
         timer.run()
