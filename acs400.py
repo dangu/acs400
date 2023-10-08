@@ -1,4 +1,4 @@
-from pymodbus.client.sync import ModbusSerialClient
+from pymodbus.client import ModbusSerialClient
 # import time
 import logging
 import sys
@@ -75,17 +75,17 @@ class ACS400:
             print(f"{nPump}")
 
     def getNPump(self):
-        nPump = self.client.read_holding_registers(102-1, count=1, unit=1)
+        nPump = self.client.read_holding_registers(102-1, count=1, slave=1)
         return nPump
 
     def getRegister(self, reg):
         """Get register"""
-        return self.client.read_holding_registers(reg-1, count=1, unit=1)
+        return self.client.read_holding_registers(reg-1, count=1, slave=1)
 
     def setRegister(self, reg, value):
         """Set register"""
         if self._enableWrites:
-            result = self.client.write_register(reg-1, value, unit=1)
+            result = self.client.write_register(reg-1, value, slave=1)
             if not result.isError():
                 logger.debug(f"Write {reg:04}:{value}")
             else:
