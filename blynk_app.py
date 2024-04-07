@@ -93,11 +93,16 @@ def write_to_virtual_pins():
 
     # Publish if there is data
     if dictToPublish != {}:
-        publisher.send({'acs400':dictToPublish})
+        packetDict = {'name': 'acs400',
+                      'tags': {'location':'reservoaren'},
+                      'dataDict': dictToPublish}
+        publisher.send(packetDict)
 
     # Special publish for Blynk2
     if dictToPublishBlynk2 != {}:
-        publisher.send({'acs400ForBlynk2':dictToPublishBlynk2})
+        publisher.send({'name': 'acs400ForBlynk2',
+                        'tags': {'location':'reservoaren'},
+                        'dataDict': dictToPublishBlynk2})
         
 if __name__ == "__main__":
     logFormatter = logging.Formatter("%(asctime)s [%(levelname)-7s][%(name)s] %(message)s")
